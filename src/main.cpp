@@ -1,66 +1,144 @@
 #include "ShuffleDeck.h"
+#include "ScoringSystem.h"
 
 int main() {
     std::vector<Card> deck = createDeck();
     shuffleDeck(deck);
 
+    const int ROUNDS          = 4;
+    const int targets[ROUNDS] = {1, 2, 4, 5};
+    const int MAX_DISCARDS    = 3;
+    const int MAX_DISCARD_CARDS = 3;
+
     std::cout << "==============================\n";
-    std::cout << "    52-Card Deck Shuffled!\n";
+    std::cout << "   Blackjack Challenge!\n";
+    std::cout << "   52 cards, 4 rounds.\n";
     std::cout << "==============================\n";
 
     int drawn = 0;
-    char choice = 'y';
-
-    // Draw initial 5 cards into hand
     std::vector<Card> hand;
-    int toDraw = std::min(5, (int)deck.size());
-    for (int i = 0; i < toDraw; i++)
-        hand.push_back(deck[drawn++]);
+    fillHand(hand, deck, drawn);
 
-    while (true) {
-        int remaining = (int)deck.size() - drawn;
+    for (int round = 0; round < ROUNDS; round++) {
+        int target       = targets[round];
+        int blackjacks   = 0;
+        int discardsUsed = 0;
 
-        printHand(hand);
-        std::cout << "  Cards left in deck: " << remaining << "\n";
+        std::cout << "\n";
+        std::cout << "==============================\n";
+        std::cout << "  ROUND " << (round + 1) << "  |  Goal: " << target << " Blackjack(s)\n";
         std::cout << "==============================\n";
 
-        // Ask to discard
-        std::vector<int> discardIndices = getDiscardChoices((int)hand.size());
+        bool quitGame = false;
 
-        if (!discardIndices.empty()) {
-            discardAndDraw(hand, deck, drawn, discardIndices);
-            remaining = (int)deck.size() - drawn;
+        while (blackjacks < target) {
+            int remaining = (int)deck.size() - drawn;
 
             printHand(hand);
-            std::cout << "  Cards left in deck: " << remaining << "\n";
+            std::cout << "  Blackjacks : " << blackjacks << " / " << target << "\n";
+            std::cout << "  Discards   : " << discardsUsed << " / " << MAX_DISCARDS << "\n";
+            std::cout << "  Deck left  : " << remaining << "\n";
+            std::cout << "------------------------------\n";
+            std::cout << "  1. Play\n";
+            std::cout << "  2. Discard\n";
+            std::cout << "  0. Quit\n";
+            std::cout << "  Choice: ";
+
+            std::string choice;
+            std::getline(std::cin, choice);
+
+            if (choice == "0") {
+                quitGame = true;
+                break;
+            }
+
+            // ── PLAY ──────────────────────────────────────────────────────
+            if (choice == "1") {
+                std::vector<int> playIndices;
+                do {
+                    playIndices = getPlayChoices(hand);
+                    if (playIndices.empty())
+                        std::cout << "  Select at least one card to play!\n";
+                } while (playIndices.empty());
+
+                std::cout << "\n  Playing: ";
+                std::vector<Card> played;
+                for (int idx : playIndices) {
+                    played.push_back(hand[idx]);
+                    std::cout << hand[idx].rank << hand[idx].suit << " ";
+                }
+                std::cout << "\n";
+
+                int score = calculateScore(played);
+                std::cout << "  Score   : " << score;
+                if (score == 21) {
+                    std::cout << "  *** BLACKJACK! ***\n";
+                    blackjacks++;
+                } else if (score > 21) {
+                    std::cout << "  -- BUST!\n";
+                } else {
+                    std::cout << "\n";
+                }
+                std::cout << "==============================\n";
+
+                discardAndDraw(hand, deck, drawn, playIndices);
+                fillHand(hand, deck, drawn);
+
+            // ── DISCARD ───────────────────────────────────────────────────
+            } else if (choice == "2") {
+                if (discardsUsed >= MAX_DISCARDS) {
+                    std::cout << "  No discards remaining this round!\n";
+                    continue;
+                }
+
+                std::vector<int> discardIndices = getDiscardChoices(hand, MAX_DISCARD_CARDS);
+                if (discardIndices.empty()) {
+                    std::cout << "  No cards discarded.\n";
+                    continue;
+                }
+
+                std::cout << "  Discarding: ";
+                for (int idx : discardIndices)
+                    std::cout << hand[idx].rank << hand[idx].suit << " ";
+                std::cout << "\n";
+
+                discardAndDraw(hand, deck, drawn, discardIndices);
+                fillHand(hand, deck, drawn);
+                discardsUsed++;
+                std::cout << "  Discards used: " << discardsUsed << "/" << MAX_DISCARDS << "\n";
+                std::cout << "==============================\n";
+
+            } else {
+                std::cout << "  Invalid choice. Enter 1, 2, or 0.\n";
+            }
+
+            // Deck & hand exhausted
+            if (hand.empty()) {
+                std::cout << "\n  No cards left! Game over!\n";
+                std::cout << "==============================\n";
+                quitGame = true;
+                break;
+            }
+        }
+
+        if (quitGame) {
+            std::cout << "\n  Game ended. Final round: " << (round + 1) << "\n";
+            std::cout << "==============================\n";
+            return 0;
+        }
+
+        // Round complete
+        if (round < ROUNDS - 1) {
+            std::cout << "\n  Round " << (round + 1) << " Complete! On to round " << (round + 2) << "!\n";
             std::cout << "==============================\n";
         } else {
-            std::cout << "  Keeping all cards.\n";
+            std::cout << "\n";
+            std::cout << "==============================\n";
+            std::cout << "  YOU WIN! All 4 rounds cleared!\n";
             std::cout << "==============================\n";
         }
-
-        if (remaining <= 0) {
-            std::cout << "\n  Deck is now empty!\n";
-            std::cout << "==============================\n";
-            break;
-        }
-
-        // Ask to draw another 5
-        std::cout << "\n  Draw another 5? (y/n): ";
-        std::cin >> choice;
-
-        if (choice == 'n' || choice == 'N') {
-            std::cout << "\n  Stopped drawing. " << remaining << " card(s) remain in the deck.\n";
-            std::cout << "==============================\n";
-            break;
-        }
-
-        // Draw 5 new cards into hand (replace hand)
-        hand.clear();
-        int nextDraw = std::min(5, (int)deck.size() - drawn);
-        for (int i = 0; i < nextDraw; i++)
-            hand.push_back(deck[drawn++]);
     }
 
     return 0;
 }
+

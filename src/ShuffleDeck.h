@@ -10,6 +10,7 @@
 struct Card {
     std::string rank;
     std::string suit;
+    bool discarded = false; // slot kosong setelah dibuang
 };
 
 std::vector<Card> createDeck() {
@@ -19,7 +20,7 @@ std::vector<Card> createDeck() {
     std::vector<Card> deck;
     for (auto& suit : suits)
         for (auto& rank : ranks)
-            deck.push_back({rank, suit});
+            deck.push_back({rank, suit, false});
 
     return deck;
 }
@@ -42,11 +43,13 @@ void printHand(const std::vector<Card>& hand) {
     std::cout << "------------------------------\n";
 }
 
-// Returns list of 0-based indices to discard
-std::vector<int> getDiscardChoices(int handSize) {
-    std::cout << "\n  Enter card numbers to discard (e.g: 1, 2) or 0 to keep all: ";
+// Returns list of 0-based indices to discard, capped at maxCards
+std::vector<int> getDiscardChoices(const std::vector<Card>& hand, int maxCards = 5) {
+    if (hand.empty()) return {};
+
+    std::cout << "\n  [ DISCARD ] Select up to " << maxCards
+              << " card indices (e.g: 1,3) or 0 to cancel: ";
     std::string line;
-    std::cin.ignore();
     std::getline(std::cin, line);
 
     std::vector<int> indices;
@@ -57,33 +60,65 @@ std::vector<int> getDiscardChoices(int handSize) {
     while (std::getline(ss, token, ',')) {
         try {
             int num = std::stoi(token);
-            if (num >= 1 && num <= handSize)
-                indices.push_back(num - 1); // convert to 0-based
+            int idx = num - 1;
+            if (idx >= 0 && idx < (int)hand.size())
+                indices.push_back(idx);
         } catch (...) {}
     }
 
-    // Remove duplicates and sort descending for safe removal
     std::sort(indices.begin(), indices.end());
     indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
-
+    if ((int)indices.size() > maxCards) indices.resize(maxCards);
     return indices;
 }
 
-// Discard selected cards from hand, draw replacements from deck
-void discardAndDraw(std::vector<Card>& hand, std::vector<Card>& deck, int& drawn, const std::vector<int>& discardIndices) {
-    int count = (int)discardIndices.size();
-    int available = (int)deck.size() - drawn;
-    int toDraw = std::min(count, available);
+// Remove cards at given indices and draw replacements appended to hand
+void discardAndDraw(std::vector<Card>& hand, std::vector<Card>& deck, int& drawn, std::vector<int> indices) {
+    // Sort descending so erasing doesn't shift later indices
+    std::sort(indices.rbegin(), indices.rend());
+    int count = (int)indices.size();
 
-    // Remove discarded cards (descending order to keep indices valid)
-    for (int i = count - 1; i >= 0; i--)
-        hand.erase(hand.begin() + discardIndices[i]);
+    for (int idx : indices)
+        hand.erase(hand.begin() + idx);
 
-    // Draw replacements from deck
-    for (int i = 0; i < toDraw; i++) {
-        hand.push_back(deck[drawn]);
-        drawn++;
+    int drawCount = 0;
+    for (int i = 0; i < count && drawn < (int)deck.size(); i++) {
+        hand.push_back(deck[drawn++]);
+        drawCount++;
     }
 
-    std::cout << "  Discarded " << count << " card(s), drew " << toDraw << " new card(s).\n";
+    if (drawCount > 0)
+        std::cout << "  Drew " << drawCount << " new card(s).\n";
+}
+
+// Fill hand up to targetSize by drawing from deck
+void fillHand(std::vector<Card>& hand, std::vector<Card>& deck, int& drawn, int targetSize = 5) {
+    while ((int)hand.size() < targetSize && drawn < (int)deck.size())
+        hand.push_back(deck[drawn++]);
+}
+
+// Get indices of cards the player wants to play for scoring
+// Returns empty if input is invalid or empty
+std::vector<int> getPlayChoices(const std::vector<Card>& hand) {
+    std::cout << "\n  [ PLAY ] Select card indices to play (e.g: 1,3,5): ";
+    std::string line;
+    std::getline(std::cin, line);
+
+    std::vector<int> indices;
+    if (line.empty()) return indices;
+
+    std::stringstream ss(line);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        try {
+            int num = std::stoi(token);
+            int idx = num - 1;
+            if (idx >= 0 && idx < (int)hand.size())
+                indices.push_back(idx);
+        } catch (...) {}
+    }
+
+    std::sort(indices.begin(), indices.end());
+    indices.erase(std::unique(indices.begin(), indices.end()), indices.end());
+    return indices;
 }
