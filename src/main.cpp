@@ -7,6 +7,7 @@ int main() {
 
     const int ROUNDS          = 4;
     const int targets[ROUNDS] = {1, 2, 4, 5};
+    const int MAX_PLAYS        = 3;
     const int MAX_DISCARDS    = 3;
     const int MAX_DISCARD_CARDS = 3;
 
@@ -22,6 +23,7 @@ int main() {
     for (int round = 0; round < ROUNDS; round++) {
         int target       = targets[round];
         int blackjacks   = 0;
+        int playsUsed    = 0;
         int discardsUsed = 0;
 
         std::cout << "\n";
@@ -31,11 +33,12 @@ int main() {
 
         bool quitGame = false;
 
-        while (blackjacks < target) {
+        while (blackjacks < target && playsUsed < MAX_PLAYS) {
             int remaining = (int)deck.size() - drawn;
 
             printHand(hand);
             std::cout << "  Blackjacks : " << blackjacks << " / " << target << "\n";
+            std::cout << "  Plays      : " << playsUsed << " / " << MAX_PLAYS << "\n";
             std::cout << "  Discards   : " << discardsUsed << " / " << MAX_DISCARDS << "\n";
             std::cout << "  Deck left  : " << remaining << "\n";
             std::cout << "------------------------------\n";
@@ -54,6 +57,10 @@ int main() {
 
             // ── PLAY ──────────────────────────────────────────────────────
             if (choice == "1") {
+                if (playsUsed >= MAX_PLAYS) {
+                    std::cout << "  No plays remaining this round!\n";
+                    continue;
+                }
                 std::vector<int> playIndices;
                 do {
                     playIndices = getPlayChoices(hand);
@@ -81,6 +88,7 @@ int main() {
                 }
                 std::cout << "==============================\n";
 
+                playsUsed++;
                 discardAndDraw(hand, deck, drawn, playIndices);
                 fillHand(hand, deck, drawn);
 
@@ -119,6 +127,12 @@ int main() {
                 quitGame = true;
                 break;
             }
+        }
+
+        if (!quitGame && playsUsed >= MAX_PLAYS && blackjacks < target) {
+            std::cout << "\n  Out of plays! Round " << (round + 1) << " failed.\n";
+            std::cout << "==============================\n";
+            return 0;
         }
 
         if (quitGame) {
