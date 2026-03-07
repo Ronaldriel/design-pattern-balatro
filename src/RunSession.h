@@ -12,7 +12,7 @@ void runSession() {
 
     const int ROUNDS          = 4;
     const int targets[ROUNDS] = {1, 2, 4, 5};
-    const int MAX_PLAYS        = 3;
+    const int MAX_PLAYS        = 5;
     const int MAX_DISCARDS    = 3;
     const int MAX_DISCARD_CARDS = 3;
 
